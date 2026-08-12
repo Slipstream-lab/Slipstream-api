@@ -1,0 +1,220 @@
+// Slipstream API — Prisma schema
+// Relational model for contracts, analyses (jobs + results), grades
+// (letter + numeric score, with history over time), detector findings,
+// hot keys, and leaderboard entries.
+//
+// Generate the client with `npm run prisma:generate`. A live database is NOT
+// required to generate the client or to run the test suites.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+/// A Soroban smart contract tracked by Slipstream. A contract may be ingested
+/// from source (a repo/path) and/or by its on-chain contract id.
+model Contract {
+  id          String   @id @default(cuid())
+  /// On-chain Soroban contract id (C...). Optional: a contract may be
+  /// analyzed from source before deployment.
+  contractId  String?  @unique
+  /// Human-readable name / slug.
+  name        String
+  /// Source repository URL, if ingested from a repo.
+  repoUrl     String?
+  /// Git ref (branch/tag/sha) the current metadata was derived from.
+  gitRef      String?
+  /// Free-form ecosystem/protocol grouping used for leaderboard scoping.
+  ecosystem   String?
+  description String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  analyses         Analysis[]
+  jobs             AnalysisJob[]
+  grades           Grade[]
+  gradeHistory     GradeHistory[]
+  leaderboardEntry LeaderboardEntry?
+
+  @@index([ecosystem])
+  @@index([name])
+}
+
+/// The lifecycle state of an analysis job.
+enum AnalysisStatus {
+  PENDING
+  RUNNING
+  COMPLETED
+  FAILED
+}
+
+/// Which slipstream-core command produced an analysis.
+enum AnalysisKind {
+  SCAN
+  PROFILE
+  DIFF
+}
+
+/// A queued unit of work that (eventually) invokes slipstream-core. Decoupled
+/// from Analysis so a job can be retried / observed independently of results.
+model AnalysisJob {
+  id           String         @id @default(cuid())
+  contractId   String
+  kind         AnalysisKind   @default(SCAN)
+  status       AnalysisStatus @default(PENDING)
+  /// BullMQ job id, once enqueued (null when Redis is unavailable).
+  queueJobId   String?
+  /// Arbitrary JSON payload the worker needs (paths, refs, fixture, etc.).
+  payload      Json?
+  /// Populated when status = FAILED.
+  errorMessage String?
+  attempts     Int            @default(0)
+  createdAt    DateTime       @default(now())
+  startedAt    DateTime?
+  finishedAt   DateTime?
+
+  contract Contract  @relation(fields: [contractId], references: [id], onDelete: Cascade)
+  analysis Analysis?
+
+  @@index([contractId])
+  @@index([status])
+  @@index([kind, status])
+}
+
+/// A completed analysis result for a contract. Stores the top-line contention
+/// metrics; detailed findings and hot keys are child records.
+model Analysis {
+  id           String         @id @default(cuid())
+  contractId   String
+  jobId        String?        @unique
+  kind         AnalysisKind   @default(SCAN)
+  status       AnalysisStatus @default(COMPLETED)
+  /// Version string of the slipstream-core binary used, when known.
+  coreVersion  String?
+  /// The `source`/`source_name` reported by core.
+  source       String?
+
+  // --- Aggregate contention metrics (from scan/profile). Nullable so a
+  //     scan-only analysis need not populate profile-only fields. ---
+  functionCount      Int?
+  storageReads       Int?
+  storageWrites      Int?
+  detectorFindings   Int?
+  transactionCount   Int?
+  distinctKeys       Int?
+  stageCount         Int?
+  parallelism        Float?
+  criticalPathLength Int?
+  weightedCriticalPathWeight Int?
+  totalConflicts     Int?
+
+  /// Full raw JSON report from core, retained for inspection / re-processing.
+  rawReport Json?
+
+  createdAt DateTime @default(now())
+
+  contract Contract          @relation(fields: [contractId], references: [id], onDelete: Cascade)
+  job      AnalysisJob?      @relation(fields: [jobId], references: [id], onDelete: SetNull)
+  findings DetectorFinding[]
+  hotKeys  HotKey[]
+  grade    Grade?
+
+  @@index([contractId])
+  @@index([kind])
+  @@index([createdAt])
+}
+
+/// A single detector finding emitted by the static analyzer.
+model DetectorFinding {
+  id         String  @id @default(cuid())
+  analysisId String
+  /// One of: global-static-write, write-in-loop, read-modify-write, duplicate-read.
+  detector   String
+  /// The function the finding is associated with, when relevant.
+  function   String?
+  /// The storage key the finding is associated with, when relevant.
+  key        String?
+  message    String
+
+  analysis Analysis @relation(fields: [analysisId], references: [id], onDelete: Cascade)
+
+  @@index([analysisId])
+  @@index([detector])
+}
+
+/// A hot key ranked by access frequency for a profiled transaction set.
+model HotKey {
+  id         String @id @default(cuid())
+  analysisId String
+  /// Ledger key in its canonical string form (e.g. `contract:C1:shard:0`).
+  key        String
+  reads      Int    @default(0)
+  writes     Int    @default(0)
+  touchCount Int    @default(0)
+
+  analysis Analysis @relation(fields: [analysisId], references: [id], onDelete: Cascade)
+
+  @@index([analysisId])
+  @@index([touchCount])
+}
+
+/// The most recent grade for a contract (one-to-one with its latest Analysis).
+model Grade {
+  id         String   @id @default(cuid())
+  contractId String
+  analysisId String   @unique
+  /// Letter grade A–F.
+  letter     String
+  /// Numeric score 0–100 (higher = less contentious / better parallelism).
+  score      Float
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  contract Contract @relation(fields: [contractId], references: [id], onDelete: Cascade)
+  analysis Analysis @relation(fields: [analysisId], references: [id], onDelete: Cascade)
+
+  @@index([contractId])
+  @@index([score])
+}
+
+/// An immutable point-in-time grade record, enabling grade-over-time charts.
+model GradeHistory {
+  id         String   @id @default(cuid())
+  contractId String
+  analysisId String?
+  letter     String
+  score      Float
+  /// Optional git ref this grade was computed against.
+  gitRef     String?
+  recordedAt DateTime @default(now())
+
+  contract Contract @relation(fields: [contractId], references: [id], onDelete: Cascade)
+
+  @@index([contractId, recordedAt])
+}
+
+/// A denormalized leaderboard row for ecosystem contention ranking. One row
+/// per contract; `rank` is recomputed by the leaderboard service.
+model LeaderboardEntry {
+  id         String   @id @default(cuid())
+  contractId String   @unique
+  ecosystem  String?
+  letter     String
+  score      Float
+  /// Cached headline metrics for fast listing without joins.
+  detectorFindings Int    @default(0)
+  totalConflicts   Int    @default(0)
+  parallelism      Float?
+  /// Rank within the (optionally ecosystem-scoped) leaderboard, 1 = best.
+  rank       Int?
+  updatedAt  DateTime @updatedAt
+
+  contract Contract @relation(fields: [contractId], references: [id], onDelete: Cascade)
+
+  @@index([ecosystem, score])
+  @@index([rank])
+}

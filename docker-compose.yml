@@ -1,0 +1,63 @@
+# Local development stack for Slipstream API.
+#
+# WARNING: the credentials below are LOCAL-DEV ONLY, non-secret placeholders.
+# Never reuse them anywhere real. Production must supply secrets via a secrets
+# manager / environment, not this file.
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: slipstream-postgres
+    restart: unless-stopped
+    environment:
+      # LOCAL-DEV ONLY — not a secret.
+      POSTGRES_USER: slipstream
+      POSTGRES_PASSWORD: slipstream_local_dev
+      POSTGRES_DB: slipstream
+    ports:
+      - '5432:5432'
+    volumes:
+      - slipstream_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U slipstream -d slipstream']
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    container_name: slipstream-redis
+    restart: unless-stopped
+    ports:
+      - '6379:6379'
+    volumes:
+      - slipstream_redisdata:/data
+    healthcheck:
+      test: ['CMD', 'redis-cli', 'ping']
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  # The API itself. Commented out by default so `docker compose up` just brings
+  # up the datastores for local `npm run start:dev`. Uncomment to run the full
+  # stack in containers.
+  #
+  # api:
+  #   build: .
+  #   container_name: slipstream-api
+  #   depends_on:
+  #     postgres:
+  #       condition: service_healthy
+  #     redis:
+  #       condition: service_healthy
+  #   environment:
+  #     DATABASE_URL: postgresql://slipstream:slipstream_local_dev@postgres:5432/slipstream?schema=public
+  #     REDIS_HOST: redis
+  #     REDIS_PORT: 6379
+  #     PORT: 3000
+  #   ports:
+  #     - '3000:3000'
+
+volumes:
+  slipstream_pgdata:
+  slipstream_redisdata:
