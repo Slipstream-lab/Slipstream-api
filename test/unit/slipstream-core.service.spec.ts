@@ -2,7 +2,7 @@ import { Test } from '@nestjs/testing';
 import { CORE_RUNNER, CoreRunner } from '../../src/core/core-runner.interface';
 import { CoreInvocationError, SlipstreamCoreService } from '../../src/core/slipstream-core.service';
 import { MockCoreRunner } from '../../src/core/mock-core-runner';
-import { PROFILE_TEXT_OUTPUT, RAW_DIFF_JSON, RAW_SCAN_JSON } from '../fixtures/core-samples';
+import { PROFILE_JSON_OUTPUT, RAW_DIFF_JSON, RAW_SCAN_JSON } from '../fixtures/core-samples';
 
 async function buildService(runner: CoreRunner): Promise<SlipstreamCoreService> {
   const moduleRef = await Test.createTestingModule({
@@ -94,10 +94,10 @@ describe('SlipstreamCoreService', () => {
   });
 
   describe('profile()', () => {
-    it('parses the human-readable profile output into a ProfileReport', async () => {
+    it('parses the machine-readable profile JSON into a ProfileReport', async () => {
       const service = await buildService(
         new MockCoreRunner({
-          profile: { stdout: PROFILE_TEXT_OUTPUT, stderr: '', exitCode: 0 },
+          profile: { stdout: PROFILE_JSON_OUTPUT, stderr: '', exitCode: 0 },
         }),
       );
       const report = await service.profile('fixtures/x.json');
@@ -111,11 +111,23 @@ describe('SlipstreamCoreService', () => {
       expect(report.total_conflicts).toBe(3);
       expect(report.hot_keys).toHaveLength(2);
       expect(report.hot_keys[0]).toEqual({
-        key: 'contract:C1:shard:0',
+        key: { ContractData: { contract_id: 'C1', key: 'shard:0' } },
         reads: 0,
         writes: 2,
         touch_count: 2,
       });
+      // The full schedule is carried through for visualization.
+      expect(report.schedule.stages).toHaveLength(2);
+      expect(report.schedule.stages[0].txns).toEqual([0, 1, 2]);
+    });
+
+    it('throws CoreInvocationError on invalid profile JSON', async () => {
+      const service = await buildService(
+        new MockCoreRunner({
+          profile: { stdout: 'not json', stderr: '', exitCode: 0 },
+        }),
+      );
+      await expect(service.profile('f')).rejects.toBeInstanceOf(CoreInvocationError);
     });
   });
 

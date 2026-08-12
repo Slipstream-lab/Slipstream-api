@@ -47,16 +47,29 @@ export const RAW_DIFF_JSON = JSON.stringify({
   },
 });
 
-export const PROFILE_TEXT_OUTPUT = [
-  'profile: sharded-counter workload',
-  '  transactions:    6',
-  '  distinct keys:   5',
-  '  stages:          2',
-  '  parallelism:     3.00',
-  '  critical path:   2 txns',
-  '  weighted crit.:  6 (read=1, write=2)',
-  '  total conflicts: 3',
-  '  hot keys:',
-  '    contract:C1:shard:0                              reads=   0 writes=   2',
-  '    contract:C1:state                                reads=   2 writes=   0',
-].join('\n');
+/** A real `slipstream profile --fixture <f> --json` payload. */
+export const PROFILE_JSON_OUTPUT = JSON.stringify({
+  source: 'sharded-counter workload',
+  transaction_count: 6,
+  distinct_keys: 5,
+  stage_count: 2,
+  parallelism: 3.0,
+  critical_path_length: 2,
+  weighted_critical_path_weight: 6,
+  total_conflicts: 3,
+  hot_keys: [
+    {
+      key: { ContractData: { contract_id: 'C1', key: 'shard:0' } },
+      reads: 0,
+      writes: 2,
+      touch_count: 2,
+    },
+    {
+      key: { ContractData: { contract_id: 'C1', key: 'state' } },
+      reads: 2,
+      writes: 0,
+      touch_count: 2,
+    },
+  ],
+  schedule: { stages: [{ txns: [0, 1, 2] }, { txns: [3, 4, 5] }] },
+});

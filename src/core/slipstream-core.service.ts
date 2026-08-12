@@ -1,6 +1,6 @@
 import { Inject, Injectable, Logger } from '@nestjs/common';
 import { CORE_RUNNER, CoreRunner } from './core-runner.interface';
-import { AnalysisReport, DiffReport, HotKey, ProfileReport, RawAnalysisReport } from './core.types';
+import { AnalysisReport, DiffReport, ProfileReport, RawAnalysisReport } from './core.types';
 
 /** Raised when a core invocation fails or returns unparseable output. */
 export class CoreInvocationError extends Error {
@@ -54,19 +54,14 @@ export class SlipstreamCoreService {
   }
 
   /**
-   * `slipstream profile --fixture <fixture>`.
+   * `slipstream profile --fixture <fixture> --json` → typed {@link ProfileReport}.
    *
-   * NOTE: the current CLI `profile` subcommand emits a human-readable summary,
-   * not JSON (there is no `--json` flag yet). We parse that text into the
-   * {@link ProfileReport} contract. When core gains `profile --json`, swap the
-   * body of {@link parseProfileText} for a JSON parse — the return type is
-   * unchanged. See the TODO below.
+   * The engine serializes `ProfileReport` directly (metrics + the full
+   * `schedule`), so this is a straight JSON parse — no text scraping.
    */
   async profile(fixture: string): Promise<ProfileReport> {
-    // TODO(core): switch to `['profile', '--fixture', fixture, '--json']`
-    // once slipstream-core exposes machine-readable profile output.
-    const { stdout } = await this.exec(['profile', '--fixture', fixture]);
-    return this.parseProfileText(stdout);
+    const { stdout } = await this.exec(['profile', '--fixture', fixture, '--json']);
+    return this.parseJson<ProfileReport>(stdout, 'profile');
   }
 
   // -- internals ------------------------------------------------------------
@@ -112,54 +107,6 @@ export class SlipstreamCoreService {
         storage_writes: (f.storage_writes ?? []).map((k) => (k.segments ?? []).join('.')),
       })),
       detectors: raw.detectors ?? [],
-    };
-  }
-
-  /**
-   * Parses the human-readable `profile` output. Tolerant of whitespace; any
-   * field it cannot find defaults to a zero value rather than throwing, so a
-   * partial engine output still yields a well-formed report.
-   */
-  private parseProfileText(text: string): ProfileReport {
-    const lines = text.split('\n');
-    const num = (label: string): number => {
-      const line = lines.find((l) => l.includes(`${label}:`));
-      if (!line) return 0;
-      const match = line.split(`${label}:`)[1]?.match(/-?\d+(\.\d+)?/);
-      return match ? Number(match[0]) : 0;
-    };
-
-    const sourceLine = lines.find((l) => l.startsWith('profile:'));
-    const source = sourceLine ? sourceLine.replace('profile:', '').trim() : 'unknown';
-
-    const hotKeys: HotKey[] = [];
-    const hotKeyStart = lines.findIndex((l) => l.includes('hot keys:'));
-    if (hotKeyStart >= 0) {
-      for (let i = hotKeyStart + 1; i < lines.length; i++) {
-        const m = lines[i].match(/^\s+(\S+)\s+reads=\s*(\d+)\s+writes=\s*(\d+)/);
-        if (!m) continue;
-        const reads = Number(m[2]);
-        const writes = Number(m[3]);
-        hotKeys.push({
-          key: m[1],
-          reads,
-          writes,
-          touch_count: reads + writes,
-        });
-      }
-    }
-
-    return {
-      source,
-      transaction_count: num('transactions'),
-      distinct_keys: num('distinct keys'),
-      stage_count: num('stages'),
-      parallelism: num('parallelism'),
-      critical_path_length: num('critical path'),
-      weighted_critical_path_weight: num('weighted crit.'),
-      total_conflicts: num('total conflicts'),
-      hot_keys: hotKeys,
-      schedule: null,
     };
   }
 }

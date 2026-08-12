@@ -1,7 +1,7 @@
 import { Inject, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { Analysis, AnalysisJob, AnalysisKind, AnalysisStatus, Prisma } from '@prisma/client';
 import { SlipstreamCoreService } from '../../core/slipstream-core.service';
-import { AnalysisReport, ProfileReport } from '../../core/core.types';
+import { AnalysisReport, ProfileReport, renderLedgerKey } from '../../core/core.types';
 import { PrismaService } from '../../prisma/prisma.service';
 import { QUEUE_SERVICE, QueueService } from '../../queue/queue.service';
 import { AnalysisJobData } from '../../queue/queue.constants';
@@ -220,7 +220,7 @@ export class AnalysisService {
         rawReport: report as unknown as Prisma.InputJsonValue,
         hotKeys: {
           create: report.hot_keys.map((hk) => ({
-            key: hk.key,
+            key: renderLedgerKey(hk.key),
             reads: hk.reads,
             writes: hk.writes,
             touchCount: hk.touch_count,

@@ -99,7 +99,7 @@ describe('grade computation', () => {
       weighted_critical_path_weight: 0,
       total_conflicts: 0,
       hot_keys: [],
-      schedule: null,
+      schedule: { stages: [] },
     };
 
     it('grades an empty set as perfect', () => {

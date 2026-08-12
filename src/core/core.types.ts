@@ -50,13 +50,68 @@ export interface AnalysisReport {
 
 /** A hot key and its access profile from `slipstream profile`. */
 export interface HotKey {
-  key: string;
+  /** The engine serializes the key as a structured `LedgerKey` enum object. */
+  key: LedgerKey;
   reads: number;
   writes: number;
   touch_count: number;
 }
 
-/** The result of `slipstream profile --fixture <f>` (normalized). */
+/**
+ * A ledger key as serialized by the engine (externally-tagged enum). Only the
+ * variants the engine emits are enumerated; unknown variants fall through to a
+ * raw record so forward-compatibility never breaks parsing.
+ */
+export type LedgerKey =
+  | { Account: { account_id: string } }
+  | { TrustLine: { account_id: string; asset: string } }
+  | { ContractData: { contract_id: string; key: string } }
+  | { ContractCode: { contract_id: string } }
+  | { ContractTtl: { contract_id: string } }
+  | { Other: string }
+  | Record<string, unknown>;
+
+/** One scheduling stage: the transactions (by index) that run in parallel. */
+export interface Cluster {
+  txns: number[];
+}
+
+/** The full schedule: an ordered list of stages. */
+export interface Schedule {
+  stages: Cluster[];
+}
+
+/**
+ * Renders a {@link LedgerKey} to a stable string, mirroring the engine's
+ * `Display` formatting. Used when a structured key must be stored/displayed as
+ * text (e.g. a `HotKey.key` persisted to a string column).
+ */
+export function renderLedgerKey(key: LedgerKey): string {
+  const k = key as Record<string, unknown>;
+  if ('Account' in k) {
+    return `account:${(k.Account as { account_id: string }).account_id}`;
+  }
+  if ('TrustLine' in k) {
+    const t = k.TrustLine as { account_id: string; asset: string };
+    return `trustline:${t.account_id}:${t.asset}`;
+  }
+  if ('ContractData' in k) {
+    const c = k.ContractData as { contract_id: string; key: string };
+    return `contract:${c.contract_id}:${c.key}`;
+  }
+  if ('ContractCode' in k) {
+    return `code:${(k.ContractCode as { contract_id: string }).contract_id}`;
+  }
+  if ('ContractTtl' in k) {
+    return `ttl:${(k.ContractTtl as { contract_id: string }).contract_id}`;
+  }
+  if ('Other' in k) {
+    return `other:${String(k.Other)}`;
+  }
+  return JSON.stringify(key);
+}
+
+/** The result of `slipstream profile --fixture <f> --json`. */
 export interface ProfileReport {
   source: string;
   transaction_count: number;
@@ -67,8 +122,8 @@ export interface ProfileReport {
   weighted_critical_path_weight: number;
   total_conflicts: number;
   hot_keys: HotKey[];
-  /** Full schedule (opaque here; retained for inspection/visualization). */
-  schedule: unknown;
+  /** Full schedule, for inspection and visualization. */
+  schedule: Schedule;
 }
 
 /** A per-function delta from `slipstream diff`. */
