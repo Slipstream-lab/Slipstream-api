@@ -22,7 +22,7 @@ export class MockCoreRunner implements CoreRunner {
       case 'scan':
         return Promise.resolve(ok(JSON.stringify(RAW_SCAN)));
       case 'profile':
-        return Promise.resolve(ok(PROFILE_TEXT));
+        return Promise.resolve(ok(JSON.stringify(RAW_PROFILE)));
       case 'diff':
         return Promise.resolve(ok(JSON.stringify(RAW_DIFF)));
       default:
@@ -113,21 +113,34 @@ export const RAW_DIFF = {
 };
 
 /**
- * `profile` output. The real CLI's `profile` subcommand prints a *human*
- * summary (no `--json` flag exists yet); the adapter parses that text. This
- * fixture reproduces that exact textual format for the sharded-counter
- * fixture.
+ * `profile --json` output, matching the engine's serialized `ProfileReport`
+ * (metrics + the full `schedule`; `hot_keys[].key` is a structured
+ * `LedgerKey`). Modelled on the sharded-counter fixture.
  */
-export const PROFILE_TEXT = [
-  'profile: illustrative fixture: sharded-counter workload',
-  '  transactions:    6',
-  '  distinct keys:   5',
-  '  stages:          2',
-  '  parallelism:     3.00',
-  '  critical path:   2 txns',
-  '  weighted crit.:  6 (read=1, write=2)',
-  '  total conflicts: 3',
-  '  hot keys:',
-  '    contract:C1:shard:0                              reads=   0 writes=   2',
-  '    contract:C1:state                                reads=   2 writes=   0',
-].join('\n');
+export const RAW_PROFILE = {
+  source: 'illustrative fixture: sharded-counter workload',
+  transaction_count: 6,
+  distinct_keys: 5,
+  stage_count: 2,
+  parallelism: 3.0,
+  critical_path_length: 2,
+  weighted_critical_path_weight: 6,
+  total_conflicts: 3,
+  hot_keys: [
+    {
+      key: { ContractData: { contract_id: 'C1', key: 'shard:0' } },
+      reads: 0,
+      writes: 2,
+      touch_count: 2,
+    },
+    {
+      key: { ContractData: { contract_id: 'C1', key: 'state' } },
+      reads: 2,
+      writes: 0,
+      touch_count: 2,
+    },
+  ],
+  schedule: {
+    stages: [{ txns: [0, 1, 2] }, { txns: [3, 4, 5] }],
+  },
+};
