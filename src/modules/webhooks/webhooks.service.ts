@@ -61,10 +61,9 @@ export class WebhooksService {
     const { intent } = filter;
     const pr = payload.pull_request;
     const headSha = pr?.head?.sha;
-    const baseSha = pr?.base?.sha;
 
     try {
-      const contract = await this.upsertContract(intent.repo, intent.headRef, headSha);
+      const contract = await this.upsertContract(intent.repo, intent.headRef);
       const sources = await this.github.fetchPrSources({
         repo: intent.repo,
         baseRef: intent.baseRef,
@@ -145,7 +144,7 @@ export class WebhooksService {
   }
 
   /** Upsert a contract keyed on the PR's repository URL. */
-  private async upsertContract(repo: string, headRef?: string, headSha?: string) {
+  private async upsertContract(repo: string, headRef?: string) {
     const repoUrl = `https://github.com/${repo}.git`;
     const existing = await this.prisma.contract.findFirst({ where: { repoUrl } });
     if (existing) {
