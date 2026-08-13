@@ -205,6 +205,33 @@ generated from `/docs`'s OpenAPI JSON). Add the web app's origin to
 `CORS_ORIGINS`. The leaderboard and per-contract grade-history endpoints back
 the dashboards; the analysis endpoints drive the "analyze this contract" flow.
 
+## OpenAPI export & typed client
+
+The API is documented in-code with `@nestjs/swagger` decorators and served
+live at `/docs`. A snapshot is also exported to `openapi.json` at the repo
+root so other repositories can consume it without running the server:
+
+```sh
+npm run openapi:generate   # boots the app in doc-only mode, writes openapi.json
+```
+
+Generation is deterministic: the doc-only boot uses the mocked core runner and
+an inert Prisma provider (no worker, database, or network access), and reuses
+the exact same `configureApp`/`buildOpenApiDocument` setup the real server
+uses, so the snapshot always matches `/docs`. CI enforces this with
+`npm run openapi:check` (regenerates the file and fails on any diff), so a PR
+that changes the HTTP surface must commit the updated snapshot.
+
+To generate a typed client from the snapshot (for example in `slipstream-web`):
+
+```sh
+# openapi-typescript: TypeScript types from the OpenAPI schema
+npx openapi-typescript openapi.json -o src/lib/api.ts
+
+# openapi-generator: full REST client (TS/JS, many other languages)
+npx @openapitools/openapi-generator-cli generate -i openapi.json -g typescript-fetch -o src/api
+```
+
 ## Testing
 
 ```sh

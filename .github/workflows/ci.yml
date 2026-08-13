@@ -39,6 +39,12 @@ jobs:
       - name: Lint
         run: npm run lint
 
+      # The exported OpenAPI document must be regenerated whenever the HTTP
+      # surface changes. If the committed openapi.json is stale (the generated
+      # file differs from it), this step fails with a non-zero exit.
+      - name: OpenAPI drift check
+        run: npm run openapi:check
+
       - name: Build
         run: npm run build
 
