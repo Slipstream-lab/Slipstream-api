@@ -38,6 +38,18 @@ export const githubConfig = registerAs('github', () => ({
   appPrivateKey: process.env.GITHUB_APP_PRIVATE_KEY || undefined,
 }));
 
+export const securityConfig = registerAs('security', () => {
+  const explicit = (process.env.RATE_LIMIT_ENABLED ?? '').trim().toLowerCase();
+  const forceEnabled = explicit === 'true' || explicit === '1';
+  const forceDisabled = explicit === 'false' || explicit === '0';
+  return {
+    /** Default ON outside tests; `RATE_LIMIT_ENABLED` can force either way. */
+    rateLimitEnabled: forceEnabled || (process.env.NODE_ENV !== 'test' && !forceDisabled),
+    rateLimitTtlMs: parseInt(process.env.RATE_LIMIT_TTL_MS ?? '60000', 10),
+    rateLimitLimit: parseInt(process.env.RATE_LIMIT_LIMIT ?? '100', 10),
+  };
+});
+
 export const stellarConfig = registerAs('stellar', () => ({
   rpcUrl: process.env.STELLAR_RPC_URL ?? '',
   networkPassphrase: process.env.STELLAR_NETWORK_PASSPHRASE ?? '',
@@ -50,5 +62,6 @@ export const configNamespaces = [
   redisConfig,
   coreConfig,
   githubConfig,
+  securityConfig,
   stellarConfig,
 ];
