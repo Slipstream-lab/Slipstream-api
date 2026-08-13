@@ -1,5 +1,6 @@
 import { AnalysisReport, ProfileReport } from '../../src/core/core.types';
 import {
+  GRADE_THRESHOLDS,
   gradeFromProfile,
   gradeFromScan,
   interpretDiff,
@@ -26,6 +27,27 @@ describe('grade computation', () => {
       [0, 'F'],
     ])('maps %i -> %s', (score, letter) => {
       expect(letterForScore(score)).toBe(letter);
+    });
+
+    it('asserts the documented GRADE_THRESHOLDS table (API <-> web contract)', () => {
+      // The README "Grading" table and slipstream-web/lib/grade.ts must mirror
+      // this exact mapping. Boundaries are inclusive at the bottom of each band.
+      const bands = GRADE_THRESHOLDS.map((t) => ({ min: t.min, letter: t.letter }));
+      expect(bands).toEqual([
+        { min: 90, letter: 'A' },
+        { min: 80, letter: 'B' },
+        { min: 70, letter: 'C' },
+        { min: 60, letter: 'D' },
+        { min: 0, letter: 'F' },
+      ]);
+
+      for (const t of GRADE_THRESHOLDS) {
+        expect(letterForScore(t.min)).toBe(t.letter);
+        expect(letterForScore(t.min + 1)).toBe(t.letter);
+        if (t.min > 0) {
+          expect(letterForScore(t.min - 1)).not.toBe(t.letter);
+        }
+      }
     });
   });
 

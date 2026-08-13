@@ -115,6 +115,48 @@ interface (`src/core/core-runner.interface.ts`):
 - **`gradeFromProfile`** rewards high parallelism relative to transaction count
   and penalizes conflicts.
 
+### Score → letter mapping
+
+The numeric score is clamped to `[0, 100]` and mapped to a letter using these
+thresholds (inclusive at the lower bound of each band). This table is the
+**contract** between the API and `slipstream-web`: the web repo's
+`lib/grade.ts` must mirror it, and `GRADE_THRESHOLDS` in
+`src/modules/analysis/grade.ts` is the API-side single source of truth
+asserted by `test/unit/grade.spec.ts`.
+
+| Score range | Letter | Meaning                     |
+| ----------- | ------ | --------------------------- |
+| 90–100      | A      | Excellent                   |
+| 80–89       | B      | Good                        |
+| 70–79       | C      | Fair                        |
+| 60–69       | D      | Poor                        |
+| 0–59        | F      | Failing                     |
+
+> **Keep in sync:** if you change `GRADE_THRESHOLDS` (or the penalties below),
+> regenerate this table, update `slipstream-web/lib/grade.ts`, and confirm the
+> unit test still asserts the documented bands.
+
+### Penalties (scan)
+
+Each detector finding deducts points based on severity:
+
+| Detector               | Penalty |
+| ---------------------- | ------- |
+| `global-static-write`  | 15      |
+| `write-in-loop`        | 12      |
+| `read-modify-write`    | 8       |
+| `duplicate-read`       | 4       |
+| other / default        | 6       |
+
+Additionally, every storage write beyond the first within a single function
+deducts **1.5** points (write amplification).
+
+### Scoring (profile)
+
+`score = round(parallelism / transaction_count × 100)`, then up to **40**
+points deducted for conflict rate (`total_conflicts / transaction_count × 10`,
+capped at 40). An empty schedule scores 100.
+
 Grades are stored on the `Grade` row, appended to `GradeHistory` (for
 grade-over-time charts), and denormalized into `LeaderboardEntry`.
 
