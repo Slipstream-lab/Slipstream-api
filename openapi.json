@@ -85,6 +85,31 @@
         ]
       }
     },
+    "/api/contracts/ingest-repo": {
+      "post": {
+        "operationId": "ContractsController_ingestByRepo",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/IngestByRepoDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "The ingested contract and its analysis job."
+          }
+        },
+        "summary": "Ingest a contract by repository URL + ref and analyze it",
+        "tags": [
+          "contracts"
+        ]
+      }
+    },
     "/api/contracts/{id}": {
       "get": {
         "operationId": "ContractsController_findOne",
@@ -444,6 +469,50 @@
           "name"
         ]
       },
+      "IngestByRepoDto": {
+        "type": "object",
+        "properties": {
+          "repoUrl": {
+            "type": "string",
+            "description": "Git repository URL (https)."
+          },
+          "ref": {
+            "type": "string",
+            "description": "Git ref to analyze (branch, tag or sha).",
+            "default": "main"
+          },
+          "name": {
+            "type": "string",
+            "description": "Contract name. Defaults to the repository name derived from the URL."
+          },
+          "ecosystem": {
+            "type": "string",
+            "description": "Ecosystem/protocol grouping."
+          },
+          "description": {
+            "type": "string",
+            "description": "Free-form description."
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "SCAN",
+              "PROFILE",
+              "DIFF"
+            ],
+            "description": "Which analysis to run against the fetched sources.",
+            "default": "SCAN"
+          },
+          "runInline": {
+            "type": "boolean",
+            "description": "Run synchronously (invoke core inline) instead of enqueuing.",
+            "default": false
+          }
+        },
+        "required": [
+          "repoUrl"
+        ]
+      },
       "UpdateContractDto": {
         "type": "object",
         "properties": {
@@ -509,6 +578,14 @@
             "type": "boolean",
             "description": "Run synchronously (invoke core inline) instead of enqueuing. Useful when no Redis worker is running.",
             "default": false
+          },
+          "ref": {
+            "type": "string",
+            "description": "Git ref the sources came from (recorded on the job)."
+          },
+          "commitSha": {
+            "type": "string",
+            "description": "Resolved commit sha the sources came from (recorded on the job)."
           }
         },
         "required": [
