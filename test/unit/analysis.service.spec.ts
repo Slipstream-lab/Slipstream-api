@@ -29,6 +29,7 @@ function fakePrisma() {
       }),
     },
     analysisJob: {
+      findUnique: jest.fn().mockResolvedValue(job),
       create: jest.fn().mockResolvedValue(job),
       update: jest.fn().mockImplementation(({ data }: any) => {
         if (data.status) state.jobStatus.push(data.status);
@@ -37,6 +38,7 @@ function fakePrisma() {
       findUniqueOrThrow: jest.fn().mockResolvedValue({ ...job, status: 'COMPLETED' }),
     },
     analysis: {
+      findUnique: jest.fn().mockResolvedValue(null),
       create: jest.fn().mockImplementation(({ data }: any) => {
         state.analysisCreated = data;
         return Promise.resolve({ id: 'a1', ...data });

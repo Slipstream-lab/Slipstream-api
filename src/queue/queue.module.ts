@@ -1,7 +1,6 @@
 import { BullModule } from '@nestjs/bullmq';
 import { DynamicModule, Logger, Module } from '@nestjs/common';
 import { CoreModule } from '../core/core.module';
-import { AnalysisProcessor } from './analysis.processor';
 import { BullQueueService } from './bull-queue.service';
 import { NoopQueueService } from './noop-queue.service';
 import { ANALYSIS_QUEUE } from './queue.constants';
@@ -12,8 +11,10 @@ import { QUEUE_SERVICE } from './queue.service';
  * environment (BullMQ needs the connection to build its providers), so the
  * decision cannot be deferred to DI:
  *
- *  - When `REDIS_HOST` is set → registers BullMQ, the analysis queue, the
- *    {@link AnalysisProcessor} worker, and the real {@link BullQueueService}.
+ *  - When `REDIS_HOST` is set → registers BullMQ, the analysis queue, and the
+ *    real {@link BullQueueService}. The {@link AnalysisProcessor} worker is
+ *    registered by `AnalysisModule` (it needs `AnalysisService`), avoiding a
+ *    circular module dependency.
  *  - When `REDIS_HOST` is empty/unset → registers ONLY the
  *    {@link NoopQueueService}, so the app and all test suites boot without a
  *    running Redis.
@@ -48,7 +49,7 @@ export class QueueModule {
         }),
         BullModule.registerQueue({ name: ANALYSIS_QUEUE }),
       ],
-      providers: [AnalysisProcessor, { provide: QUEUE_SERVICE, useClass: BullQueueService }],
+      providers: [{ provide: QUEUE_SERVICE, useClass: BullQueueService }],
       exports: [QUEUE_SERVICE, BullModule],
     };
   }
