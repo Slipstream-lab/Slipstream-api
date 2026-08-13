@@ -24,13 +24,24 @@ export const GRADE_WEIGHTS = {
   excessWritePenalty: 1.5,
 };
 
-/** Maps a 0–100 numeric score to a letter grade. */
+/**
+ * The single source of truth for the score→letter mapping. Tests assert
+ * `letterForScore` against this table, and the README reproduces it verbatim
+ * so `slipstream-web/lib/grade.ts` can be kept in sync deliberately.
+ */
+export const GRADE_THRESHOLDS = [
+  { min: 90, letter: 'A', label: 'Excellent' },
+  { min: 80, letter: 'B', label: 'Good' },
+  { min: 70, letter: 'C', label: 'Fair' },
+  { min: 60, letter: 'D', label: 'Poor' },
+  { min: 0, letter: 'F', label: 'Failing' },
+] as const;
+
+/** Maps a 0–100 numeric score to a letter grade (driven by GRADE_THRESHOLDS). */
 export function letterForScore(score: number): string {
-  if (score >= 90) return 'A';
-  if (score >= 80) return 'B';
-  if (score >= 70) return 'C';
-  if (score >= 60) return 'D';
-  return 'F';
+  const clamped = clamp(score, 0, 100);
+  const bucket = GRADE_THRESHOLDS.find((t) => clamped >= t.min);
+  return bucket?.letter ?? 'F';
 }
 
 function clamp(n: number, lo: number, hi: number): number {
