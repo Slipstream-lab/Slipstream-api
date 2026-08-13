@@ -317,6 +317,29 @@ and the core runner are all mocked/guarded.
   then run **inline** (the core command is invoked synchronously and persisted)
   so the API stays fully functional without a broker.
 
+## Security hardening
+
+The API ships with baseline protections on by default:
+
+- **Security headers** — [`helmet`](https://helmetjs.github.io/) sets CSP,
+  `X-Frame-Options`, `X-Content-Type-Options`, HSTS, etc. on every response.
+- **Rate limiting** — [`@nestjs/throttler`](https://docs.nestjs.com/security/rate-limiting)
+  limits each client IP to `RATE_LIMIT_LIMIT` requests per `RATE_LIMIT_TTL_MS`
+  (default **100 / 60s**). The guard stays registered but is inert in the test
+  env; force it with `RATE_LIMIT_ENABLED=true|false`.
+- **Request correlation ids** — every response carries a `x-request-id` header
+  (`randomUUID()`, or the inbound value echoed back). `LoggingInterceptor`
+  includes it in each HTTP log line, and downstream code can read it from
+  `request.id`.
+
+Configuration:
+
+| Variable            | Default | Meaning                                  |
+| ------------------- | ------- | ---------------------------------------- |
+| `RATE_LIMIT_ENABLED`| auto    | `true`/`false` to force; else on outside test env |
+| `RATE_LIMIT_TTL_MS` | `60000` | Throttle window (ms).                    |
+| `RATE_LIMIT_LIMIT`  | `100`   | Max requests per window per IP.          |
+
 ## Roadmap / TODOs
 
 These are implemented as clean interfaces + mocks/stubs, not half-features:

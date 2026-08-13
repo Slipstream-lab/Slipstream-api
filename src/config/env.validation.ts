@@ -30,6 +30,12 @@ export const validationSchema = Joi.object({
   GITHUB_APP_ID: Joi.string().allow('').optional(),
   GITHUB_APP_PRIVATE_KEY: Joi.string().allow('').optional(),
 
+  // Security hardening. Rate limiting defaults ON outside the test env and can
+  // be forced on/off explicitly (e.g. RATE_LIMIT_ENABLED=true in e2e).
+  RATE_LIMIT_ENABLED: Joi.boolean().truthy('true', '1').falsy('false', '0').optional(),
+  RATE_LIMIT_TTL_MS: Joi.number().integer().min(1).default(60000),
+  RATE_LIMIT_LIMIT: Joi.number().integer().min(1).default(100),
+
   // Stellar (interfaces + mocks only).
   STELLAR_RPC_URL: Joi.string().uri().default('https://soroban-testnet.stellar.org'),
   STELLAR_NETWORK_PASSPHRASE: Joi.string().default('Test SDF Network ; September 2015'),
