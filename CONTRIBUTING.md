@@ -25,10 +25,22 @@ tests matter more than breadth of features.
    cp .env.example .env
    docker compose up -d          # local Postgres + Redis
    npm run prisma:generate
+   npm run prisma:migrate        # apply pending migrations to local Postgres
    ```
 
-3. Write or update tests alongside your change.
-4. Run the full local validation suite before opening a PR:
+3. **Schema changes**: edit `prisma/schema.prisma`, then create a migration and
+   commit it alongside the schema (see README "Database migrations"):
+
+   ```sh
+   npm run prisma:migrate -- --name describe_the_change
+   ```
+
+   Deploys and CI use `npx prisma migrate deploy`, which applies only committed
+   migrations and never creates new ones — so keep migrations in sync with the
+   schema in the same PR.
+
+4. Write or update tests alongside your change.
+5. Run the full local validation suite before opening a PR:
 
    ```sh
    npm run prisma:validate
@@ -38,7 +50,7 @@ tests matter more than breadth of features.
    npm run test:e2e
    ```
 
-5. Open a pull request against `main` and reference the issue it resolves.
+6. Open a pull request against `main` and reference the issue it resolves.
 
 ## Conventions
 
