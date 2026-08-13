@@ -1,11 +1,11 @@
 import { Inject, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { Analysis, AnalysisJob, AnalysisKind, AnalysisStatus, Prisma } from '@prisma/client';
 import { SlipstreamCoreService } from '../../core/slipstream-core.service';
-import { AnalysisReport, ProfileReport, renderLedgerKey } from '../../core/core.types';
+import { AnalysisReport, DiffReport, ProfileReport, renderLedgerKey } from '../../core/core.types';
 import { PrismaService } from '../../prisma/prisma.service';
 import { QUEUE_SERVICE, QueueService } from '../../queue/queue.service';
 import { AnalysisJobData } from '../../queue/queue.constants';
-import { AnalysisKindDto, CreateAnalysisDto } from './dto/create-analysis.dto';
+import { CreateAnalysisDto } from './dto/create-analysis.dto';
 import { ComputedGrade, gradeFromProfile, gradeFromScan } from './grade';
 
 @Injectable()
@@ -53,7 +53,15 @@ export class AnalysisService {
     const runInline = dto.runInline || !this.queue.enabled;
     if (runInline) {
       // Process synchronously so callers/tests get a result without a broker.
-      await this.runJob(job, dto);
+      await this.processJob({
+        analysisJobId: job.id,
+        contractId: dto.contractId,
+        kind: dto.kind,
+        path: dto.path,
+        fixture: dto.fixture,
+        left: dto.left,
+        right: dto.right,
+      });
       return this.prisma.analysisJob.findUniqueOrThrow({
         where: { id: job.id },
       });
@@ -107,39 +115,47 @@ export class AnalysisService {
   }
 
   /**
-   * Runs a job's core command inline and persists the resulting Analysis,
-   * findings, hot keys and grade. Marks the job COMPLETED or FAILED.
+   * Runs a job's core command and persists the result (Analysis + findings +
+   * hot keys + grade + history + leaderboard). Shared by the inline path in
+   * {@link create} and the BullMQ worker, so both paths persist identically.
+   *
+   * Idempotent per job id: if the job already has a persisted Analysis, this
+   * is a no-op, so broker retries are safe (no duplicate rows, no re-grading).
    */
-  private async runJob(job: AnalysisJob, dto: CreateAnalysisDto): Promise<void> {
+  async processJob(data: AnalysisJobData): Promise<void> {
+    const job = await this.prisma.analysisJob.findUnique({
+      where: { id: data.analysisJobId },
+    });
+    if (!job) {
+      throw new NotFoundException(`Analysis job ${data.analysisJobId} not found`);
+    }
+
+    const existing = await this.prisma.analysis.findUnique({
+      where: { jobId: job.id },
+    });
+    if (existing) {
+      this.logger.log(
+        `Analysis job ${job.id} already has analysis ${existing.id}; skipping (idempotent retry)`,
+      );
+      return;
+    }
+
     await this.prisma.analysisJob.update({
       where: { id: job.id },
       data: { status: AnalysisStatus.RUNNING, startedAt: new Date() },
     });
 
     try {
-      switch (dto.kind) {
-        case AnalysisKindDto.SCAN:
-          await this.persistScan(job, await this.core.scan(dto.path ?? '.'));
+      switch (job.kind) {
+        case AnalysisKind.SCAN:
+          await this.persistScan(job, await this.core.scan(data.path ?? '.'));
           break;
-        case AnalysisKindDto.PROFILE:
-          await this.persistProfile(job, await this.core.profile(dto.fixture ?? ''));
+        case AnalysisKind.PROFILE:
+          await this.persistProfile(job, await this.core.profile(data.fixture ?? ''));
           break;
-        case AnalysisKindDto.DIFF: {
-          const report = await this.core.diff(dto.left ?? '', dto.right ?? '');
-          await this.prisma.analysis.create({
-            data: {
-              contractId: job.contractId,
-              jobId: job.id,
-              kind: AnalysisKind.DIFF,
-              status: AnalysisStatus.COMPLETED,
-              detectorFindings: report.summary.detector_findings_delta,
-              storageReads: report.summary.storage_reads_delta,
-              storageWrites: report.summary.storage_writes_delta,
-              rawReport: report as unknown as Prisma.InputJsonValue,
-            },
-          });
+        case AnalysisKind.DIFF:
+          await this.persistDiff(job, await this.core.diff(data.left ?? '', data.right ?? ''));
           break;
-        }
       }
       await this.prisma.analysisJob.update({
         where: { id: job.id },
@@ -202,6 +218,22 @@ export class AnalysisService {
       detectorFindings: findings.length,
     });
     return analysis;
+  }
+
+  /** Persist a DIFF result: analysis with the summary deltas. */
+  private async persistDiff(job: AnalysisJob, report: DiffReport): Promise<Analysis> {
+    return this.prisma.analysis.create({
+      data: {
+        contractId: job.contractId,
+        jobId: job.id,
+        kind: AnalysisKind.DIFF,
+        status: AnalysisStatus.COMPLETED,
+        detectorFindings: report.summary.detector_findings_delta,
+        storageReads: report.summary.storage_reads_delta,
+        storageWrites: report.summary.storage_writes_delta,
+        rawReport: report as unknown as Prisma.InputJsonValue,
+      },
+    });
   }
 
   /** Persist a PROFILE result: analysis + hot keys + grade. */
