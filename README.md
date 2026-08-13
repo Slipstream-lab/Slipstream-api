@@ -12,10 +12,11 @@ webhooks. The Next.js frontend
 [`slipstream-web`](../Slipstream-web) consumes this API.
 
 > Status: **foundation**. The HTTP surface, persistence model, core adapter,
-> queue scaffolding, and Stellar/GitHub interfaces are implemented and tested.
-> Several integrations (live Stellar RPC, GitHub App auth, worker persistence)
-> are intentionally left as clearly-scoped `TODO`s with clean interfaces — see
-> [Roadmap / TODOs](#roadmap--todos).
+> queue scaffolding, and Stellar/GitHub integrations are implemented and
+> tested. The Stellar RPC/Horizon/XDR clients are feature-flagged off by
+> default (`STELLAR_ENABLED`) and use deterministic mocks in tests; GitHub App
+> auth and worker persistence remain clearly-scoped `TODO`s with clean
+> interfaces — see [Roadmap / TODOs](#roadmap--todos).
 
 ## Tech stack
 
@@ -362,9 +363,12 @@ check-run post moves to the worker instead of running inline.
 
 These are implemented as clean interfaces + mocks/stubs, not half-features:
 
-- **Stellar RPC/Horizon**: real network clients (currently mocks). See
-  `src/stellar/stellar.interfaces.ts`.
-- **XDR decoding**: wrap `@stellar/stellar-base`. See `MockXdrDecoder`.
+- **Stellar RPC/Horizon**: real network clients. `HttpStellarRpcClient`
+  (Soroban JSON-RPC: `getHealth`, `getLedgerEntries`, two-step `getContractWasm`)
+  and `HttpStellarHorizonClient` are bound by `StellarModule.register()` when
+  `STELLAR_ENABLED=true`; the deterministic mocks are the default.
+- **XDR decoding**: `StellarBaseXdrDecoder` wraps `@stellar/stellar-base` and
+  renders ledger keys as `contract:C...:key`, `code:<hex>`, `account:<G...>`.
 - **GitHub App auth (real client)**: the webhook → analysis → check-run flow
   is fully wired against the `GitHubAppClient` interface (`GITHUB_APP_CLIENT`,
   mock by default). A real client only needs to add JWT signing with

@@ -54,6 +54,8 @@ export const stellarConfig = registerAs('stellar', () => ({
   rpcUrl: process.env.STELLAR_RPC_URL ?? '',
   networkPassphrase: process.env.STELLAR_NETWORK_PASSPHRASE ?? '',
   horizonUrl: process.env.HORIZON_URL ?? '',
+  /** Bind the real RPC/Horizon/XDR clients when enabled; mocks otherwise. */
+  enabled: process.env.STELLAR_ENABLED === 'true',
 }));
 
 export const configNamespaces = [
