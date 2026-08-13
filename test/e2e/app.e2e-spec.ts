@@ -78,7 +78,16 @@ function inMemoryPrisma() {
         return Promise.resolve(row);
       }),
       findUnique: jest.fn(({ where }: any) => Promise.resolve(analyses.get(where.id) ?? null)),
-      findMany: jest.fn(() => Promise.resolve(Array.from(analyses.values()))),
+      findMany: jest.fn(({ where, orderBy }: any) => {
+        let rows = Array.from(analyses.values());
+        if (where?.contractId) {
+          rows = rows.filter((a) => a.contractId === where.contractId);
+        }
+        if (orderBy?.createdAt === 'desc') {
+          rows.sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
+        }
+        return Promise.resolve(rows);
+      }),
     },
     grade: {
       create: jest.fn(({ data }: any) => Promise.resolve({ id: `g${++seq}`, ...data })),
