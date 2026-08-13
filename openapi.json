@@ -1,0 +1,567 @@
+{
+  "openapi": "3.0.0",
+  "paths": {
+    "/health": {
+      "get": {
+        "operationId": "HealthController_check",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HealthResponse"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Liveness probe",
+        "tags": [
+          "health"
+        ]
+      }
+    },
+    "/api/contracts": {
+      "post": {
+        "operationId": "ContractsController_ingest",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/IngestContractDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "The ingested contract."
+          }
+        },
+        "summary": "Ingest (register) a contract",
+        "tags": [
+          "contracts"
+        ]
+      },
+      "get": {
+        "operationId": "ContractsController_findAll",
+        "parameters": [
+          {
+            "name": "limit",
+            "required": false,
+            "in": "query",
+            "description": "Maximum number of items to return.",
+            "schema": {
+              "minimum": 1,
+              "maximum": 100,
+              "default": 20,
+              "type": "number"
+            }
+          },
+          {
+            "name": "offset",
+            "required": false,
+            "in": "query",
+            "description": "Number of items to skip.",
+            "schema": {
+              "minimum": 0,
+              "default": 0,
+              "type": "number"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "A page of contracts."
+          }
+        },
+        "summary": "List contracts",
+        "tags": [
+          "contracts"
+        ]
+      }
+    },
+    "/api/contracts/{id}": {
+      "get": {
+        "operationId": "ContractsController_findOne",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The contract."
+          }
+        },
+        "summary": "Get a contract and its metadata",
+        "tags": [
+          "contracts"
+        ]
+      },
+      "patch": {
+        "operationId": "ContractsController_update",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateContractDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The updated contract."
+          }
+        },
+        "summary": "Update contract metadata",
+        "tags": [
+          "contracts"
+        ]
+      },
+      "delete": {
+        "operationId": "ContractsController_remove",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Deleted."
+          }
+        },
+        "summary": "Delete a contract",
+        "tags": [
+          "contracts"
+        ]
+      }
+    },
+    "/api/contracts/{id}/grade-history": {
+      "get": {
+        "operationId": "ContractsController_gradeHistory",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Grade history, oldest first."
+          }
+        },
+        "summary": "Get a contract grade-over-time history",
+        "tags": [
+          "contracts"
+        ]
+      }
+    },
+    "/api/analysis": {
+      "post": {
+        "operationId": "AnalysisController_create",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateAnalysisDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "The created analysis job."
+          }
+        },
+        "summary": "Enqueue (or run inline) an analysis job for a contract",
+        "tags": [
+          "analysis"
+        ]
+      },
+      "get": {
+        "operationId": "AnalysisController_findForContract",
+        "parameters": [
+          {
+            "name": "contractId",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Analyses, newest first."
+          }
+        },
+        "summary": "List analyses for a contract",
+        "tags": [
+          "analysis"
+        ]
+      }
+    },
+    "/api/analysis/jobs/{id}": {
+      "get": {
+        "operationId": "AnalysisController_getJob",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The analysis job."
+          }
+        },
+        "summary": "Get an analysis job status",
+        "tags": [
+          "analysis"
+        ]
+      }
+    },
+    "/api/analysis/{id}": {
+      "get": {
+        "operationId": "AnalysisController_findOne",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The analysis."
+          }
+        },
+        "summary": "Get a completed analysis with findings",
+        "tags": [
+          "analysis"
+        ]
+      }
+    },
+    "/api/leaderboard": {
+      "get": {
+        "operationId": "LeaderboardController_list",
+        "parameters": [
+          {
+            "name": "ecosystem",
+            "required": false,
+            "in": "query",
+            "description": "Restrict ranking to a single ecosystem.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "limit",
+            "required": false,
+            "in": "query",
+            "description": "Maximum entries to return.",
+            "schema": {
+              "minimum": 1,
+              "maximum": 100,
+              "default": 20,
+              "type": "number"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Ranked leaderboard entries."
+          }
+        },
+        "summary": "Ecosystem contention leaderboard (best first)",
+        "tags": [
+          "leaderboard"
+        ]
+      }
+    },
+    "/api/leaderboard/recompute": {
+      "post": {
+        "operationId": "LeaderboardController_recompute",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Number of entries ranked."
+          }
+        },
+        "summary": "Recompute leaderboard ranks",
+        "tags": [
+          "leaderboard"
+        ]
+      }
+    },
+    "/api/webhooks/github": {
+      "post": {
+        "operationId": "WebhooksController_handle",
+        "parameters": [
+          {
+            "name": "x-github-event",
+            "required": true,
+            "in": "header",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "x-hub-signature-256",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/GithubWebhookDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Whether the event produced an analysis intent."
+          }
+        },
+        "summary": "GitHub webhook receiver (HMAC-verified) for PR contention checks",
+        "tags": [
+          "webhooks"
+        ]
+      }
+    }
+  },
+  "info": {
+    "title": "Slipstream API",
+    "description": "Backend + analysis-orchestration layer for Slipstream: contract ingestion, contention analysis via slipstream-core, leaderboard, and GitHub PR contention checks.",
+    "version": "0.1.0",
+    "contact": {}
+  },
+  "tags": [
+    {
+      "name": "health",
+      "description": ""
+    },
+    {
+      "name": "contracts",
+      "description": ""
+    },
+    {
+      "name": "analysis",
+      "description": ""
+    },
+    {
+      "name": "leaderboard",
+      "description": ""
+    },
+    {
+      "name": "webhooks",
+      "description": ""
+    }
+  ],
+  "servers": [],
+  "components": {
+    "schemas": {
+      "HealthResponse": {
+        "type": "object",
+        "properties": {}
+      },
+      "IngestContractDto": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "description": "Human-readable contract name/slug."
+          },
+          "contractId": {
+            "type": "string",
+            "description": "On-chain Soroban contract id (starts with C)."
+          },
+          "repoUrl": {
+            "type": "string",
+            "description": "Source repository URL."
+          },
+          "gitRef": {
+            "type": "string",
+            "description": "Git ref (branch/tag/sha)."
+          },
+          "ecosystem": {
+            "type": "string",
+            "description": "Ecosystem/protocol grouping."
+          },
+          "description": {
+            "type": "string",
+            "description": "Free-form description."
+          }
+        },
+        "required": [
+          "name"
+        ]
+      },
+      "UpdateContractDto": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "description": "Human-readable contract name/slug."
+          },
+          "contractId": {
+            "type": "string",
+            "description": "On-chain Soroban contract id (starts with C)."
+          },
+          "repoUrl": {
+            "type": "string",
+            "description": "Source repository URL."
+          },
+          "gitRef": {
+            "type": "string",
+            "description": "Git ref (branch/tag/sha)."
+          },
+          "ecosystem": {
+            "type": "string",
+            "description": "Ecosystem/protocol grouping."
+          },
+          "description": {
+            "type": "string",
+            "description": "Free-form description."
+          }
+        }
+      },
+      "CreateAnalysisDto": {
+        "type": "object",
+        "properties": {
+          "contractId": {
+            "type": "string",
+            "description": "The contract id (row id) to analyze."
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "SCAN",
+              "PROFILE",
+              "DIFF"
+            ],
+            "default": "SCAN"
+          },
+          "path": {
+            "type": "string",
+            "description": "Path to scan (required for SCAN)."
+          },
+          "fixture": {
+            "type": "string",
+            "description": "Fixture path (required for PROFILE)."
+          },
+          "left": {
+            "type": "string",
+            "description": "Left operand path (required for DIFF)."
+          },
+          "right": {
+            "type": "string",
+            "description": "Right operand path (required for DIFF)."
+          },
+          "runInline": {
+            "type": "boolean",
+            "description": "Run synchronously (invoke core inline) instead of enqueuing. Useful when no Redis worker is running.",
+            "default": false
+          }
+        },
+        "required": [
+          "contractId",
+          "kind"
+        ]
+      },
+      "GithubPullRequestDto": {
+        "type": "object",
+        "properties": {
+          "number": {
+            "type": "number"
+          },
+          "head": {
+            "type": "object"
+          },
+          "base": {
+            "type": "object"
+          }
+        },
+        "required": [
+          "number"
+        ]
+      },
+      "GithubRepositoryDto": {
+        "type": "object",
+        "properties": {
+          "full_name": {
+            "type": "string"
+          },
+          "clone_url": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "full_name"
+        ]
+      },
+      "GithubWebhookDto": {
+        "type": "object",
+        "properties": {
+          "action": {
+            "type": "string",
+            "description": "The action, e.g. opened, synchronize, reopened."
+          },
+          "pull_request": {
+            "$ref": "#/components/schemas/GithubPullRequestDto"
+          },
+          "repository": {
+            "$ref": "#/components/schemas/GithubRepositoryDto"
+          }
+        }
+      }
+    }
+  }
+}
