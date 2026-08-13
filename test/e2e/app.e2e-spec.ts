@@ -78,6 +78,7 @@ function inMemoryPrisma() {
         return Promise.resolve(row);
       }),
       findUnique: jest.fn(({ where }: any) => Promise.resolve(analyses.get(where.id) ?? null)),
+      findMany: jest.fn(() => Promise.resolve(Array.from(analyses.values()))),
     },
     grade: {
       create: jest.fn(({ data }: any) => Promise.resolve({ id: `g${++seq}`, ...data })),
@@ -235,7 +236,7 @@ describe('Slipstream API (e2e)', () => {
         .expect(401);
     });
 
-    it('accepts a webhook with a valid signature and returns an intent', async () => {
+    it('accepts a webhook with a valid signature, runs the check and posts a check-run', async () => {
       const payload = {
         action: 'opened',
         pull_request: { number: 7, head: { ref: 'f' }, base: { ref: 'main' } },
@@ -253,6 +254,12 @@ describe('Slipstream API (e2e)', () => {
         .expect(200);
       expect(res.body.handled).toBe(true);
       expect(res.body.intent.prNumber).toBe(7);
+      // The wired flow ran a DIFF through the mocked core runner and posted a
+      // contention check-run with a conclusion.
+      expect(res.body.intent.checkRun).toMatchObject({
+        id: expect.any(Number),
+        conclusion: 'success',
+      });
     });
   });
 

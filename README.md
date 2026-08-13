@@ -340,6 +340,24 @@ Configuration:
 | `RATE_LIMIT_TTL_MS` | `60000` | Throttle window (ms).                    |
 | `RATE_LIMIT_LIMIT`  | `100`   | Max requests per window per IP.          |
 
+## Webhooks (PR contention checks)
+
+`POST /api/webhooks/github` is HMAC-verified (`x-hub-signature-256`) and, for
+`pull_request` events with an analyzable action, drives the wired flow:
+
+1. **Materialize sources** — `GitHubAppClient.fetchPrSources` (interface in
+   `src/github/`, mock by default) returns local base/head snapshots.
+2. **Run a `DIFF`** — a base..head analysis is created through
+   `AnalysisService` (inline, so the check completes synchronously).
+3. **Post a check-run** — `GitHubAppClient.createCheckRun` reports
+   `slipstream/contention-check` with `success`/`neutral` based on the
+   detector-findings delta (`interpretDiff`).
+
+The flow is config-driven (`GITHUB_APP_ID` / `GITHUB_APP_PRIVATE_KEY`); no
+secrets are committed. A real client behind the same interface implements
+installation-token auth + source fetching. With a live broker, the `completed`
+check-run post moves to the worker instead of running inline.
+
 ## Roadmap / TODOs
 
 These are implemented as clean interfaces + mocks/stubs, not half-features:
@@ -347,8 +365,12 @@ These are implemented as clean interfaces + mocks/stubs, not half-features:
 - **Stellar RPC/Horizon**: real network clients (currently mocks). See
   `src/stellar/stellar.interfaces.ts`.
 - **XDR decoding**: wrap `@stellar/stellar-base`. See `MockXdrDecoder`.
-- **GitHub App auth**: authenticate as an installation, fetch PR head, run a
-  `DIFF`, and post a check-run. See `WebhooksService.handlePullRequest`.
+- **GitHub App auth (real client)**: the webhook → analysis → check-run flow
+  is fully wired against the `GitHubAppClient` interface (`GITHUB_APP_CLIENT`,
+  mock by default). A real client only needs to add JWT signing with
+  `GITHUB_APP_PRIVATE_KEY`, installation-token exchange, and clone/archive of
+  the PR head — the flow itself (`WebhooksService.handlePullRequest`) and the
+  DIFF/check-run mechanics are already exercised by tests.
 - **Worker persistence**: have `AnalysisProcessor` persist reports via Prisma
   (the inline path already does). See `src/queue/analysis.processor.ts`.
 - **`slipstream profile --json`**: switch the adapter from text parsing to JSON
