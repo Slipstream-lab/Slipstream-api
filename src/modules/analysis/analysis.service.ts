@@ -37,6 +37,8 @@ export class AnalysisService {
       fixture: dto.fixture ?? null,
       left: dto.left ?? null,
       right: dto.right ?? null,
+      ref: dto.ref ?? null,
+      commitSha: dto.commitSha ?? null,
     };
 
     const job = await this.prisma.analysisJob.create({
@@ -65,6 +67,8 @@ export class AnalysisService {
       fixture: dto.fixture,
       left: dto.left,
       right: dto.right,
+      ref: dto.ref,
+      commitSha: dto.commitSha,
     };
     const queueJobId = await this.queue.enqueueAnalysis(queueData);
     return this.prisma.analysisJob.update({

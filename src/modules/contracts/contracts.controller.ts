@@ -19,6 +19,7 @@ import {
 } from '@nestjs/swagger';
 import { PaginationQueryDto } from '../../common/dto/pagination-query.dto';
 import { ContractsService } from './contracts.service';
+import { IngestByRepoDto } from './dto/ingest-by-repo.dto';
 import { IngestContractDto } from './dto/ingest-contract.dto';
 import { UpdateContractDto } from './dto/update-contract.dto';
 
@@ -32,6 +33,15 @@ export class ContractsController {
   @ApiCreatedResponse({ description: 'The ingested contract.' })
   ingest(@Body() dto: IngestContractDto) {
     return this.contracts.ingest(dto);
+  }
+
+  @Post('ingest-repo')
+  @ApiOperation({
+    summary: 'Ingest a contract by repository URL + ref and analyze it',
+  })
+  @ApiCreatedResponse({ description: 'The ingested contract and its analysis job.' })
+  ingestByRepo(@Body() dto: IngestByRepoDto) {
+    return this.contracts.ingestFromRepo(dto);
   }
 
   @Get()

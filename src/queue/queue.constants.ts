@@ -15,4 +15,7 @@ export interface AnalysisJobData {
   /** Diff operands (DIFF). */
   left?: string;
   right?: string;
+  /** Git ref / resolved commit the sources came from (reproducibility). */
+  ref?: string;
+  commitSha?: string;
 }
