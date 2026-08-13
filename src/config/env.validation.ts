@@ -36,7 +36,9 @@ export const validationSchema = Joi.object({
   RATE_LIMIT_TTL_MS: Joi.number().integer().min(1).default(60000),
   RATE_LIMIT_LIMIT: Joi.number().integer().min(1).default(100),
 
-  // Stellar (interfaces + mocks only).
+  // Stellar. Mocks are used by default; set STELLAR_ENABLED=true to bind the
+  // real RPC/Horizon/XDR clients (see stellar module).
+  STELLAR_ENABLED: Joi.string().valid('true', 'false').default('false'),
   STELLAR_RPC_URL: Joi.string().uri().default('https://soroban-testnet.stellar.org'),
   STELLAR_NETWORK_PASSPHRASE: Joi.string().default('Test SDF Network ; September 2015'),
   HORIZON_URL: Joi.string().uri().default('https://horizon-testnet.stellar.org'),

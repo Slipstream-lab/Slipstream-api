@@ -20,7 +20,7 @@ import { WebhooksModule } from './modules/webhooks/webhooks.module';
     ConfigModule,
     PrismaModule,
     CoreModule,
-    StellarModule,
+    StellarModule.register(),
     QueueModule.register(),
     HealthModule,
     ThrottlerModule.forRootAsync({
