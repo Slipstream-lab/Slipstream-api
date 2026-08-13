@@ -156,6 +156,28 @@ npm run start:dev
 # API on http://localhost:3000, Swagger on http://localhost:3000/docs
 ```
 
+## Database migrations
+
+Migrations live in `prisma/migrations` and are committed to the repo. The
+initial migration (`..._init`) was generated from `prisma/schema.prisma` and
+applies cleanly to an empty database.
+
+- **Local development** — `npm run prisma:migrate` runs `prisma migrate dev`:
+  it applies any pending migrations, then detects drift between the database
+  and `schema.prisma`, prompting for a new migration name when needed.
+- **Adding a schema change** — edit `prisma/schema.prisma`, then create a
+  migration with a descriptive name:
+  ```sh
+  npm run prisma:migrate -- --name describe_the_change
+  ```
+  Review the generated SQL and commit it together with the schema change.
+- **Deploy / CI** — `npx prisma migrate deploy` applies only *committed*
+  migrations in order. It never creates new migrations or inspects your local
+  schema, so it is safe to run against production. CI runs it against a fresh
+  Postgres service container to prove the migrations apply cleanly.
+- **No credentials in migrations.** Migrations contain only schema SQL; the
+  connection string is supplied via `DATABASE_URL` at runtime.
+
 ## Environment variables
 
 All variables are validated at boot (`src/config/env.validation.ts`) and have

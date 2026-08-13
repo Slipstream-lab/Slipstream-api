@@ -47,3 +47,41 @@ jobs:
 
       - name: E2E tests
         run: npm run test:e2e
+
+  # Proves the committed migrations apply cleanly to an EMPTY database. Runs
+  # against a throwaway Postgres service container (same LOCAL-DEV credentials
+  # as docker-compose.yml — not secrets). Independent of build-test so the app
+  # test suite does not block on Postgres availability.
+  migrate-deploy:
+    name: prisma migrate deploy (fresh Postgres)
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: slipstream
+          POSTGRES_PASSWORD: slipstream_local_dev
+          POSTGRES_DB: slipstream
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U slipstream -d slipstream"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 5
+    env:
+      DATABASE_URL: postgresql://slipstream:slipstream_local_dev@localhost:5432/slipstream?schema=public
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - name: Install dependencies
+        run: npm ci
+      - name: Prisma generate
+        run: npm run prisma:generate
+      - name: Migrate deploy
+        run: npx prisma migrate deploy
+      - name: Verify no drift
+        run: npx prisma migrate status
