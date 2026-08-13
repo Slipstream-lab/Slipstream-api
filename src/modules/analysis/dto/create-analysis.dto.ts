@@ -52,4 +52,18 @@ export class CreateAnalysisDto {
   })
   @IsOptional()
   runInline?: boolean;
+
+  @ApiPropertyOptional({
+    description: 'Git ref the sources came from (recorded on the job).',
+  })
+  @IsOptional()
+  @IsString()
+  ref?: string;
+
+  @ApiPropertyOptional({
+    description: 'Resolved commit sha the sources came from (recorded on the job).',
+  })
+  @IsOptional()
+  @IsString()
+  commitSha?: string;
 }

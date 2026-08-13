@@ -21,7 +21,11 @@ const WEBHOOK_SECRET = 'e2e-secret';
  */
 function inMemoryPrisma() {
   const contracts = new Map<string, any>();
+  const jobs = new Map<string, any>();
+  const analyses = new Map<string, any>();
+  const leaderboard = new Map<string, any>();
   let seq = 0;
+
   return {
     $connect: jest.fn().mockResolvedValue(undefined),
     $disconnect: jest.fn().mockResolvedValue(undefined),
@@ -33,10 +37,65 @@ function inMemoryPrisma() {
         return Promise.resolve(row);
       }),
       findUnique: jest.fn(({ where }: any) => Promise.resolve(contracts.get(where.id) ?? null)),
+      findFirst: jest.fn(({ where }: any) =>
+        Promise.resolve(
+          Array.from(contracts.values()).find((c) =>
+            where.repoUrl ? c.repoUrl === where.repoUrl : false,
+          ) ?? null,
+        ),
+      ),
+      update: jest.fn(({ where, data }: any) => {
+        const row = { ...contracts.get(where.id), ...data };
+        contracts.set(where.id, row);
+        return Promise.resolve(row);
+      }),
       findMany: jest.fn(() => Promise.resolve(Array.from(contracts.values()))),
     },
-    leaderboardEntry: {
+    analysisJob: {
+      create: jest.fn(({ data }: any) => {
+        const id = `j${++seq}`;
+        const row = { id, createdAt: new Date(), ...data };
+        jobs.set(id, row);
+        return Promise.resolve(row);
+      }),
+      update: jest.fn(({ where, data }: any) => {
+        const row = { ...jobs.get(where.id), ...data };
+        jobs.set(where.id, row);
+        return Promise.resolve(row);
+      }),
+      findUnique: jest.fn(({ where }: any) => Promise.resolve(jobs.get(where.id) ?? null)),
+      findUniqueOrThrow: jest.fn(({ where }: any) => {
+        const row = jobs.get(where.id);
+        if (!row) return Promise.reject(new Error('job not found'));
+        return Promise.resolve(row);
+      }),
+    },
+    analysis: {
+      create: jest.fn(({ data }: any) => {
+        const id = `a${++seq}`;
+        const row = { id, createdAt: new Date(), ...data };
+        analyses.set(id, row);
+        return Promise.resolve(row);
+      }),
+      findUnique: jest.fn(({ where }: any) => Promise.resolve(analyses.get(where.id) ?? null)),
+    },
+    grade: {
+      create: jest.fn(({ data }: any) => Promise.resolve({ id: `g${++seq}`, ...data })),
+    },
+    gradeHistory: {
+      create: jest.fn(({ data }: any) => Promise.resolve({ id: `gh${++seq}`, ...data })),
       findMany: jest.fn(() => Promise.resolve([])),
+    },
+    leaderboardEntry: {
+      upsert: jest.fn(({ where, create }: any) => {
+        if (leaderboard.has(where.contractId)) {
+          return Promise.resolve(leaderboard.get(where.contractId));
+        }
+        const row = { id: `lb${++seq}`, ...create };
+        leaderboard.set(where.contractId, row);
+        return Promise.resolve(row);
+      }),
+      findMany: jest.fn(() => Promise.resolve(Array.from(leaderboard.values()))),
     },
   };
 }
@@ -129,6 +188,32 @@ describe('Slipstream API (e2e)', () => {
       await request(app.getHttpServer())
         .post('/api/contracts')
         .send({ name: 'Bad', contractId: 'not-a-valid-id' })
+        .expect(400);
+    });
+  });
+
+  describe('ingest by repo', () => {
+    it('ingests a repo, creates the contract and runs an analysis', async () => {
+      const res = await request(app.getHttpServer())
+        .post('/api/contracts/ingest-repo')
+        .send({ repoUrl: 'https://github.com/org/soroban-counter.git', ref: 'main' })
+        .expect(201);
+
+      expect(res.body.contract.repoUrl).toBe('https://github.com/org/soroban-counter.git');
+      expect(res.body.contract.gitRef).toBe('main');
+      expect(res.body.contract.name).toBe('soroban-counter');
+      expect(res.body.job.id).toBeDefined();
+      // The job records the ref/commit for reproducibility.
+      expect(res.body.job.payload).toMatchObject({ ref: 'main', commitSha: 'mock-main' });
+
+      const listed = await request(app.getHttpServer()).get('/api/contracts').expect(200);
+      expect(listed.body.length).toBeGreaterThan(0);
+    });
+
+    it('rejects a malformed repo URL', async () => {
+      await request(app.getHttpServer())
+        .post('/api/contracts/ingest-repo')
+        .send({ repoUrl: 'not-a-url' })
         .expect(400);
     });
   });
